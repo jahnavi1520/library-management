@@ -1,0 +1,108 @@
+package library.service;
+
+import library.exception.*;
+import library.model.Book;
+import library.model.BookRent;
+import library.model.PaymentStatus;
+import library.model.User;
+import library.repository.IBookRentRepository;
+import library.repository.IBookRepository;
+import library.repository.IUserRepository;
+import library.repository.InMemoryRepository;
+import library.util.Helper;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+
+public class LibraryService implements ILibraryService {
+    private final IUserRepository userRepository;
+    private final IBookRepository bookRepository;
+    private final IBookRentRepository bookRentRepository;
+
+    public LibraryService() {
+        this.userRepository = new InMemoryRepository();
+        this.bookRepository = new InMemoryRepository();
+        this.bookRentRepository = new InMemoryRepository();
+    }
+
+    @Override
+    public User signup(User user) {
+        return userRepository.saveUser(user);
+    }
+
+    @Override
+    public Book addBook(Book book) {
+        book.setAvailableCopies(book.getTotalCopies());
+        return bookRepository.saveBook(book);
+    }
+
+    @Override
+    public List<Book> addBooks(List<Book> books) {
+        List<Book> persistedBooks = new ArrayList<>();
+        for (Book book : books) {
+            persistedBooks.add(this.addBook(book));
+        }
+        return persistedBooks;
+    }
+
+    @Override
+    public BookRent borrowBook(User user, Book book) {
+        User persistedUser = this.userRepository.findUserById(user.getId());
+        if (persistedUser == null) {
+            throw new UserNotSignedUpException("User not signed up: " + user.getName());
+        }
+        Book persistedBook = this.bookRepository.findBookById(book.getId());
+        if (persistedBook.getAvailableCopies() < 1) {
+            throw new CopiesNotAvailableException("Copies not available of book: " + book.getBookName());
+        }
+        persistedBook.setAvailableCopies(persistedBook.getAvailableCopies() - 1);
+        this.bookRepository.updateBook(persistedBook);
+        BookRent bookRent = new BookRent();
+        bookRent.setUser(persistedUser);
+        bookRent.setBook(persistedBook);
+        bookRent.setTransactionDate(Date.from(Instant.now()));
+        bookRent.setIssuedPricePerDay(persistedBook.getRentPricePerDay());
+        bookRent.setPaymentStatus(PaymentStatus.NOT_PAID);
+        bookRent = this.bookRentRepository.save(bookRent);
+        return bookRent;
+    }
+
+    @Override
+    public float getPaymentDetails(BookRent bookRent) {
+        BookRent persistedBookRent = this.bookRentRepository.findBookRentById(bookRent.getId());
+        if (persistedBookRent == null) {
+            throw new WrongBookRentIdException("Wrong Book Rent Id");
+        }
+        if (persistedBookRent.getPaymentStatus() == PaymentStatus.PAID) {
+            throw new BookAlreadyReturnedException("Book already returned");
+        }
+        Date currentDate = Date.from(Instant.now());
+        return Helper.getDaysBetweenDates(currentDate, persistedBookRent.getTransactionDate());
+    }
+
+    @Override
+    public void returnBook(BookRent bookRent, float paid) {
+        BookRent persistedBookRent = this.bookRentRepository.findBookRentById(bookRent.getId());
+        if (persistedBookRent == null) {
+            throw new WrongBookRentIdException("Wrong Book Rent Id");
+        }
+        if (persistedBookRent.getReturnDate() != null ||
+                persistedBookRent.getPaymentStatus() == PaymentStatus.PAID) {
+            throw new BookAlreadyReturnedException("Book already returned");
+        }
+        Date currentDate = Date.from(Instant.now());
+        float paymentDue = Helper.getDaysBetweenDates(currentDate, persistedBookRent.getTransactionDate());
+        if (paid < paymentDue) {
+            throw new LessRentPaymentException("Less Rent Payment. Due: " + paymentDue);
+        }
+        persistedBookRent.setReturnDate(currentDate);
+        persistedBookRent.setPaymentStatus(PaymentStatus.PAID);
+        this.bookRentRepository.update(persistedBookRent);
+        Book book = this.bookRepository.findBookById(persistedBookRent.getBook().getId());
+        book.setAvailableCopies(book.getAvailableCopies() + 1);
+        this.bookRepository.updateBook(book);
+    }
+}
