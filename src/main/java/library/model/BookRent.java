@@ -2,6 +2,7 @@ package library.model;
 
 import java.util.Date;
 
+
 public class BookRent {
     private int id;
     private User user;
@@ -77,5 +78,12 @@ public class BookRent {
 
     public void setPaymentStatus(PaymentStatus paymentStatus) {
         this.paymentStatus = paymentStatus;
+    }
+
+    @Override
+    public String toString() {
+        return "BookRent{" + "id=" + id + ", user=" + user + ", book=" + book +
+                ", transactionDate=" + transactionDate + ", returnDate=" + returnDate +
+                ", issuedPricePerDay=" + issuedPricePerDay + ", paymentStatus=" + paymentStatus + '}';
     }
 }

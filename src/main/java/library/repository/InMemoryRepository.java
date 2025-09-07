@@ -7,7 +7,7 @@ import library.model.User;
 import java.util.ArrayList;
 import java.util.List;
 
-public class InMemoryRepository implements IBookRepository, IUserRepository, IBookRentRepository {
+public class InMemoryRepository implements IRepository {
     List<User> users = new ArrayList<>();
     List<Book> books = new ArrayList<>();
     List<BookRent> bookRents = new ArrayList<>();

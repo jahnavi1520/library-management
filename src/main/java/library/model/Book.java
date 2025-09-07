@@ -67,4 +67,11 @@ public class Book {
     public void setAvailableCopies(int availableCopies) {
         this.availableCopies = availableCopies;
     }
+
+    @Override
+    public String toString() {
+        return "Book{" + "id=" + id + ", bookName='" + bookName + '\'' + ", author='" +
+                author + '\'' + ", rentPricePerDay=" + rentPricePerDay + ", totalCopies=" +
+                totalCopies + ", availableCopies=" + availableCopies + '}';
+    }
 }
